@@ -22,6 +22,7 @@ import { Button, DetailsPage, Tooltip, Link } from '@podman-desktop/ui-svelte';
 import CopyButton from '/@/lib/button/CopyButton.svelte';
 import type { RequestOptions } from '@shared/src/models/RequestOptions';
 import { filesize } from 'filesize';
+import MonacoEditor from '../lib/monaco-editor/MonacoEditor.svelte';
 
 export let containerId: string | undefined = undefined;
 
@@ -118,22 +119,6 @@ $: {
     generate('curl', 'cURL').catch(err =>
       console.error(`Error generating snippet for language curl variant cURL:`, err),
     );
-  }
-}
-
-let code: HTMLElement;
-
-$: {
-  if (code) {
-    code.addEventListener('copy', event => {
-      studioClient
-        .telemetryLogUsage('snippet.copy', {
-          cpyButton: false,
-          language: selectedLanguage,
-          variant: selectedVariant,
-        })
-        .catch(err => console.error(`Error reporting telemetry:`, err));
-    });
   }
 }
 
@@ -368,11 +353,11 @@ function handleOnChange(): void {
 
                 {#if snippet !== undefined}
                   <div
-                    class="bg-[var(--pd-details-empty-cmdline-bg)] text-[var(--pd-details-empty-cmdline-text)] rounded-md w-full p-4 mt-2 relative"
+                    class="bg-[var(--pd-details-empty-cmdline-bg)] text-[var(--pd-details-empty-cmdline-text)] rounded-md w-full p-4 mt-2 relative h-[400px]"
                     aria-label="Code Snippet">
-                    <code class="whitespace-break-spaces text-sm" bind:this={code}>
-                      {snippet}
-                    </code>
+                    {#key snippet}
+                      <MonacoEditor class="h-full" readOnly content={snippet} language={selectedLanguage} />
+                    {/key}
                     <div class="absolute right-4 top-4 z-10">
                       <Button icon={copied ? faCheck : faCopy} type="secondary" title="Copy" on:click={copySnippet} />
                     </div>
