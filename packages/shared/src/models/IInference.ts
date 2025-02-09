@@ -21,6 +21,7 @@ export enum InferenceType {
   LLAMA_CPP = 'llama-cpp',
   WHISPER_CPP = 'whisper-cpp',
   NONE = 'none',
+  VLLM = 'vllm',
 }
 
 export type InferenceServerStatus = 'stopped' | 'running' | 'deleting' | 'stopping' | 'error' | 'starting';

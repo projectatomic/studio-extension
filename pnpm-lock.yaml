@@ -117,6 +117,9 @@ importers:
       '@huggingface/gguf':
         specifier: ^0.1.12
         version: 0.1.12
+      '@huggingface/hub':
+        specifier: ^0.21.0
+        version: 0.21.0
       express:
         specifier: ^4.21.2
         version: 4.21.2
@@ -1226,6 +1229,13 @@ packages:
   '@huggingface/gguf@0.1.12':
     resolution: {integrity: sha512-m+u/ms28wE74v2VVCTncfI/KB2v897MRMOoRuYSU62P85fJ6/B2exMlHCNyAXkgDLeXBWDivXl4gPq+XbHmkaA==}
     engines: {node: '>=20'}
+
+  '@huggingface/hub@0.21.0':
+    resolution: {integrity: sha512-DpitNhqobMJLTv8dUq/EMtrz1dpfs3UrSVCxe1aKpjLAdOs6Gm6rqrinUFNvC9G88RIRzIYzojUtYUqlkKwKnA==}
+    engines: {node: '>=18'}
+
+  '@huggingface/tasks@0.13.13':
+    resolution: {integrity: sha512-jaU91/x9mn3q1pwHMzpUiXICqME56LgDgza/nyt4h3Jp6k84YW931YFK5ri32qBDHmtjn/1dR4OMw85+dx87dA==}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -6019,6 +6029,12 @@ snapshots:
       '@fortawesome/fontawesome-common-types': 6.7.2
 
   '@huggingface/gguf@0.1.12': {}
+
+  '@huggingface/hub@0.21.0':
+    dependencies:
+      '@huggingface/tasks': 0.13.13
+
+  '@huggingface/tasks@0.13.13': {}
 
   '@humanfs/core@0.19.1': {}
 

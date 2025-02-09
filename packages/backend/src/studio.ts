@@ -54,6 +54,7 @@ import { InstructlabApiImpl } from './instructlab-api-impl';
 import { NavigationRegistry } from './registries/NavigationRegistry';
 import { StudioAPI } from '@shared/src/StudioAPI';
 import { InstructlabAPI } from '@shared/src/InstructlabAPI';
+import { VLLM } from './workers/provider/VLLM';
 
 export class Studio {
   readonly #extensionContext: ExtensionContext;
@@ -258,6 +259,10 @@ export class Studio {
     );
     this.#extensionContext.subscriptions.push(
       this.#inferenceProviderRegistry.register(new WhisperCpp(this.#taskRegistry, this.#podmanConnection)),
+    );
+
+    this.#extensionContext.subscriptions.push(
+      this.#inferenceProviderRegistry.register(new VLLM(this.#taskRegistry, this.#podmanConnection)),
     );
 
     /**

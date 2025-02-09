@@ -6,5 +6,8 @@
     "default": "ghcr.io/containers/podman-desktop-extension-ai-lab-playground-images/ai-lab-playground-chat@sha256:20734e9d60f047d27e4c9cf6a3b663e0627d48bd06d0a73b968f9d81c82de2f1",
     "cuda": "ghcr.io/containers/podman-desktop-extension-ai-lab-playground-images/ai-lab-playground-chat-cuda@sha256:798acced911527254601d0e39a90c5a29ecad82755f28594bea9a587ea9e6043",
     "vulkan": "ghcr.io/containers/podman-desktop-extension-ai-lab-playground-images/ai-lab-playground-chat-vulkan@sha256:22e11661fe66ace7c30b419703305b803eb937da10e19c23cb6767f03578256c"
+  },
+  "vllm": {
+    "default": "quay.io/rh-ee-astefani/vllm:cpu-1734105797"
   }
 }

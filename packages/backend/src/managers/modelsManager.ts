@@ -39,9 +39,14 @@ import { gguf } from '@huggingface/gguf';
 import type { PodmanConnection } from './podmanConnection';
 import { VMType } from '@shared/src/models/IPodman';
 import type { ConfigurationRegistry } from '../registries/ConfigurationRegistry';
+import { InferenceType } from '@shared/src/models/IInference';
+import { scanCacheDir } from '@huggingface/hub';
+import { basename, join } from 'node:path';
 
 export class ModelsManager implements Disposable {
   #models: Map<string, ModelInfo>;
+  #hfCache: Map<string, ModelInfo>;
+
   #watcher?: podmanDesktopApi.FileSystemWatcher;
   #disposables: Disposable[];
 
@@ -58,6 +63,7 @@ export class ModelsManager implements Disposable {
     private configurationRegistry: ConfigurationRegistry,
   ) {
     this.#models = new Map();
+    this.#hfCache = new Map();
     this.#disposables = [];
   }
 
@@ -72,6 +78,44 @@ export class ModelsManager implements Disposable {
     this.loadLocalModels().catch((err: unknown) => {
       console.error('Something went wrong while trying to load local models', err);
     });
+
+    scanCacheDir()
+      .then(results => {
+        this.#hfCache.clear();
+        results.repos.forEach(repo => {
+          if (repo.revisions.length === 0) {
+            console.warn(`found hugging face cache repository ${repo.id} without any revision`);
+            return;
+          }
+
+          // ensure at least one safetensor is available
+          if (!repo.revisions[0].files.some(file => file.path.endsWith('.safetensors'))) {
+            console.warn(
+              `hugging face cache repository ${repo.id.name} do not contain any .safetensors file: ignoring`,
+            );
+            return;
+          }
+
+          const id = basename(repo.path);
+          this.#hfCache.set(id, {
+            id: id,
+            backend: InferenceType.VLLM,
+            file: {
+              file: repo.revisions[0].commitOid,
+              path: join(repo.path, 'snapshots'),
+              creation: repo.lastModifiedAt,
+              size: repo.size,
+            },
+            name: repo.id.name,
+            description: repo.id.name,
+            properties: {
+              origin: 'HF_CACHE',
+            },
+          });
+        });
+        this.notify();
+      })
+      .catch(console.error);
   }
 
   dispose(): void {
@@ -85,7 +129,7 @@ export class ModelsManager implements Disposable {
     this.catalogManager.getModels().forEach(m => this.#models.set(m.id, m));
     const reloadLocalModels = async (): Promise<void> => {
       this.getLocalModelsFromDisk();
-      await this.sendModelsInfo();
+      this.notify();
     };
     if (this.#watcher === undefined) {
       this.#watcher = apiFs.createFileSystemWatcher(this.modelsDir);
@@ -99,15 +143,17 @@ export class ModelsManager implements Disposable {
   }
 
   getModelsInfo(): ModelInfo[] {
-    return [...this.#models.values()];
+    return [...this.#models.values(), ...this.#hfCache.values()];
   }
 
-  async sendModelsInfo(): Promise<void> {
+  notify(): void {
     const models = this.getModelsInfo();
-    await this.webview.postMessage({
-      id: Messages.MSG_NEW_MODELS_STATE,
-      body: models,
-    });
+    this.webview
+      .postMessage({
+        id: Messages.MSG_NEW_MODELS_STATE,
+        body: models,
+      })
+      .catch(console.error);
   }
 
   getModelsDirectory(): string {
@@ -186,7 +232,7 @@ export class ModelsManager implements Disposable {
     }
 
     model.state = 'deleting';
-    await this.sendModelsInfo();
+    this.notify();
     try {
       await this.deleteRemoteModel(model);
       let modelPath;
@@ -214,7 +260,7 @@ export class ModelsManager implements Disposable {
       model.state = undefined;
       this.getLocalModelsFromDisk();
     } finally {
-      await this.sendModelsInfo();
+      this.notify();
     }
   }
 
@@ -331,9 +377,7 @@ export class ModelsManager implements Disposable {
 
         // refresh model lists on event completion
         this.getLocalModelsFromDisk();
-        this.sendModelsInfo().catch((err: unknown) => {
-          console.error('Something went wrong while sending models info.', err);
-        });
+        this.notify();
 
         // cleanup downloader
         this.#downloaders.delete(event.id);
@@ -430,6 +474,11 @@ export class ModelsManager implements Disposable {
     // ensure the model upload is not disabled
     if (this.configurationRegistry.getExtensionConfiguration().modelUploadDisabled) {
       console.warn('The model upload is disabled, this may cause the inference server to take a few minutes to start.');
+      return getLocalModelFile(model);
+    }
+
+    if (model.backend === InferenceType.VLLM) {
+      console.warn('Model upload for vllm is disabled');
       return getLocalModelFile(model);
     }
 
