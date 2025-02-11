@@ -25,7 +25,7 @@ import type { Language } from 'postman-code-generators';
 import { studioClient } from '/@/utils/client';
 import { router } from 'tinro';
 import type { ModelInfo } from '@shared/src/models/IModelInfo';
-import MonacoEditor from '../lib/monaco-editor/MonacoEditor.svelte';
+import MonacoEditor from '/@/lib/monaco-editor/MonacoEditor.svelte';
 
 const mocks = vi.hoisted(() => {
   return {
@@ -34,7 +34,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('../lib/monaco-editor/MonacoEditor.svelte', () => ({
+vi.mock('/@/lib/monaco-editor/MonacoEditor.svelte', () => ({
   default: vi.fn(),
 }));
 

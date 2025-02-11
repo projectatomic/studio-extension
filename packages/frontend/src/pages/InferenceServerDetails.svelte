@@ -22,7 +22,7 @@ import { Button, DetailsPage, Tooltip, Link } from '@podman-desktop/ui-svelte';
 import CopyButton from '/@/lib/button/CopyButton.svelte';
 import type { RequestOptions } from '@shared/src/models/RequestOptions';
 import { filesize } from 'filesize';
-import MonacoEditor from '../lib/monaco-editor/MonacoEditor.svelte';
+import MonacoEditor from '/@/lib/monaco-editor/MonacoEditor.svelte';
 
 export let containerId: string | undefined = undefined;
 
