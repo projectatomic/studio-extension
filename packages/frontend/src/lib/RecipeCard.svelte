@@ -7,6 +7,7 @@ import { localRepositories } from '../stores/localRepositories';
 import { findLocalRepositoryByRecipeId } from '/@/utils/localRepositoriesUtils';
 import type { LocalRepository } from '@shared/src/models/ILocalRepository';
 import RecipeStatus from '/@/lib/RecipeStatus.svelte';
+import RecipeCardTags from './RecipeCardTags.svelte';
 
 export let recipe: Recipe;
 
@@ -24,17 +25,24 @@ function handleClick(): void {
     role="region"
     aria-label={recipe.name}>
     <!-- body -->
-    <div class="flex flex-row text-base grow">
-      <!-- left column -->
-      <div class="flex flex-col grow">
-        <span class="text-[var(--pd-content-card-header-text)]" aria-label="{recipe.name} name">{recipe.name}</span>
-        <span class="text-sm text-[var(--pd-content-card-text)]" aria-label="{recipe.name} description"
-          >{recipe.description}</span>
+    <div class="flex flex-col grow">
+      <div class="flex flex-row text-base">
+        <!-- left column -->
+        <div class="flex flex-col">
+          <span class="text-[var(--pd-content-card-header-text)]" aria-label="{recipe.name} name">{recipe.name}</span>
+          <span class="text-sm text-[var(--pd-content-card-text)]" aria-label="{recipe.name} description"
+            >{recipe.description}</span>
+        </div>
+
+        <!-- right column -->
+        <div>
+          <RecipeStatus recipe={recipe} localRepository={localPath} />
+        </div>
       </div>
 
-      <!-- right column -->
-      <div>
-        <RecipeStatus recipe={recipe} localRepository={localPath} />
+      <!-- tags -->
+      <div class="flex flex-row gap-2 py-2 items-center">
+        <RecipeCardTags recipe={recipe} />
       </div>
     </div>
 
