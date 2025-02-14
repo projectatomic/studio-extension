@@ -16,6 +16,8 @@
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
 
+/* eslint-disable sonarjs/no-nested-functions */
+
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { ApiServer, PREFERENCE_RANDOM_PORT } from './apiServer';
 import request from 'supertest';
@@ -30,6 +32,24 @@ import type { AddressInfo } from 'node:net';
 import type { CatalogManager } from './catalogManager';
 import type { Downloader } from '../utils/downloader';
 import type { ProgressEvent } from '../models/baseEvent';
+import type { InferenceManager } from './inference/inferenceManager';
+import type { ContainerHealthy, ContainerRegistry } from '../registries/ContainerRegistry';
+import type { InferenceServer } from '@shared/src/models/IInference';
+import OpenAI from 'openai';
+import type { ChatCompletion, ChatCompletionChunk } from 'openai/resources';
+import { Stream } from 'openai/streaming';
+
+vi.mock('openai', () => {
+  const OpenAI = vi.fn();
+  OpenAI.prototype = {
+    chat: {
+      completions: {
+        create: vi.fn(),
+      },
+    },
+  };
+  return { default: OpenAI };
+});
 
 class TestApiServer extends ApiServer {
   public override getListener(): Server | undefined {
@@ -46,9 +66,17 @@ const modelsManager = {
   isModelOnDisk: vi.fn(),
   createDownloader: vi.fn(),
 } as unknown as ModelsManager;
+
 const catalogManager = {
   getModelByName: vi.fn(),
 } as unknown as CatalogManager;
+
+const inferenceManager = {
+  getServers: vi.fn(),
+  createInferenceServer: vi.fn(),
+  startInferenceServer: vi.fn(),
+} as unknown as InferenceManager;
+
 const configurationRegistry = {
   getExtensionConfiguration: () => {
     return {
@@ -56,9 +84,21 @@ const configurationRegistry = {
     };
   },
 } as unknown as ConfigurationRegistry;
+
+const containerRegistry = {
+  onHealthyContainerEvent: vi.fn(),
+} as unknown as ContainerRegistry;
+
 beforeEach(async () => {
   vi.clearAllMocks();
-  server = new TestApiServer(extensionContext, modelsManager, catalogManager, configurationRegistry);
+  server = new TestApiServer(
+    extensionContext,
+    modelsManager,
+    catalogManager,
+    inferenceManager,
+    configurationRegistry,
+    containerRegistry,
+  );
   vi.spyOn(server, 'displayApiInfo').mockReturnValue();
   vi.spyOn(server, 'getSpecFile').mockReturnValue(path.join(__dirname, '../../../../api/openapi.yaml'));
   vi.spyOn(server, 'getPackageFile').mockReturnValue(path.join(__dirname, '../../../../package.json'));
@@ -280,5 +320,476 @@ describe.each([undefined, true, false])('/api/pull endpoint, stream is %o', stre
       expect(lines[2]).toEqual('{"error":"Error: an error"}');
       expect(lines[3]).toEqual('');
     }
+  });
+});
+
+describe.each([undefined, true, false])('stream is %o', stream => {
+  describe.each(['/api/chat', '/api/generate'])('%o endpoint', endpoint => {
+    test('returns an error if the model is not known', async () => {
+      expect(server.getListener()).toBeDefined();
+      vi.mocked(catalogManager.getModelByName).mockImplementation(() => {
+        throw new Error('model unknown');
+      });
+      const req = request(server.getListener()!).post(endpoint).send({ model: 'unknown-model-name', stream });
+      if (stream === false) {
+        const res = await req.expect(500).expect('Content-Type', 'application/json; charset=utf-8');
+        expect(res.body.error).toEqual('chat: model "unknown-model-name" does not exist');
+      } else {
+        const res = await req.expect(200);
+        const lines = res.text.split('\n');
+        expect(lines.length).toEqual(2);
+        expect(lines[0]).toEqual('{"error":"chat: model \\"unknown-model-name\\" does not exist"}');
+        expect(lines[1]).toEqual('');
+      }
+    });
+
+    test('returns an error if model is not downloaded', async () => {
+      expect(server.getListener()).toBeDefined();
+      vi.mocked(catalogManager.getModelByName).mockReturnValue({
+        id: 'modelId',
+        name: 'model-name',
+        description: 'a description',
+      });
+      vi.mocked(modelsManager.isModelOnDisk).mockReturnValue(false);
+      const req = request(server.getListener()!).post(endpoint).send({ model: 'model-name', stream });
+      if (stream === false) {
+        const res = await req.expect(500).expect('Content-Type', 'application/json; charset=utf-8');
+        expect(res.body.error).toEqual('chat: model "model-name" not found, try pulling it first');
+      } else {
+        const res = await req.expect(200).expect('transfer-encoding', 'chunked');
+        const lines = res.text.split('\n');
+        expect(lines.length).toEqual(2);
+        expect(lines[0]).toEqual('{"error":"chat: model \\"model-name\\" not found, try pulling it first"}');
+        expect(lines[1]).toEqual('');
+      }
+    });
+  });
+
+  describe('the model is available', () => {
+    const onHealthyContainerEventEmptyCallback = (): podmanDesktopApi.Disposable => {
+      return {
+        dispose: vi.fn(),
+      };
+    };
+
+    const onHealthyContainerEventNonEmptyCallback = (
+      fn: (e: ContainerHealthy) => void,
+    ): podmanDesktopApi.Disposable => {
+      setTimeout(
+        () =>
+          fn({
+            id: 'container1',
+          }),
+        100,
+      );
+      return {
+        dispose: vi.fn(),
+      };
+    };
+
+    beforeEach(() => {
+      expect(server.getListener()).toBeDefined();
+      vi.mocked(catalogManager.getModelByName).mockReturnValue({
+        id: 'modelId1',
+        name: 'model-name',
+        description: 'a description',
+        file: {
+          file: 'a-file-name',
+          path: '/path/to/model-file',
+        },
+      });
+      vi.mocked(modelsManager.isModelOnDisk).mockReturnValue(true);
+    });
+
+    describe('the service is initially not created', async () => {
+      beforeEach(async () => {
+        vi.mocked(inferenceManager.getServers).mockReturnValueOnce([]);
+      });
+
+      describe('the created service is immediately healthy', () => {
+        beforeEach(() => {
+          vi.mocked(inferenceManager.createInferenceServer).mockImplementation(async () => {
+            vi.mocked(inferenceManager.getServers).mockReturnValueOnce([
+              {
+                models: [
+                  {
+                    id: 'modelId1',
+                    name: 'model-name',
+                    description: 'model 1',
+                  },
+                ],
+                container: {
+                  engineId: 'engine1',
+                  containerId: 'container1',
+                },
+                status: 'running',
+                health: {
+                  Status: 'healthy',
+                },
+              } as unknown as InferenceServer,
+            ]);
+            vi.mocked(containerRegistry.onHealthyContainerEvent).mockImplementation(
+              onHealthyContainerEventEmptyCallback,
+            );
+            return 'container1';
+          });
+        });
+
+        test('/api/generate creates the service and returns that the model is loaded', async () => {
+          const req = request(server.getListener()!).post('/api/generate').send({ model: 'model-name', stream });
+          if (stream === false) {
+            const res = await req.expect(200).expect('Content-Type', 'application/json; charset=utf-8');
+            expect(res.body).toEqual({ model: 'model-name', response: '', done: true, done_reason: 'load' });
+          } else {
+            const res = await req.expect(200).expect('transfer-encoding', 'chunked');
+            const lines = res.text.split('\n');
+            expect(lines.length).toEqual(2);
+            expect(lines[0]).toEqual('{"model":"model-name","response":"","done":true,"done_reason":"load"}');
+            expect(lines[1]).toEqual('');
+          }
+          expect(containerRegistry.onHealthyContainerEvent).toHaveBeenCalledOnce();
+          expect(inferenceManager.createInferenceServer).toHaveBeenCalledOnce();
+        });
+      });
+
+      describe('the created service is eventually healthy', () => {
+        beforeEach(() => {
+          vi.mocked(inferenceManager.createInferenceServer).mockImplementation(async () => {
+            vi.mocked(inferenceManager.getServers).mockReturnValueOnce([
+              {
+                models: [
+                  {
+                    id: 'modelId1',
+                    name: 'model-name',
+                    description: 'model 1',
+                  },
+                ],
+                container: {
+                  engineId: 'engine1',
+                  containerId: 'container1',
+                },
+                status: 'starting',
+              } as unknown as InferenceServer,
+            ]);
+            vi.mocked(containerRegistry.onHealthyContainerEvent).mockImplementation(
+              onHealthyContainerEventNonEmptyCallback,
+            );
+            return 'container1';
+          });
+        });
+
+        test('/api/generate creates the service and returns that the model is loaded', async () => {
+          const req = request(server.getListener()!).post('/api/generate').send({ model: 'model-name', stream });
+          if (stream === false) {
+            const res = await req.expect(200).expect('Content-Type', 'application/json; charset=utf-8');
+            expect(res.body).toEqual({ model: 'model-name', response: '', done: true, done_reason: 'load' });
+          } else {
+            const res = await req.expect(200).expect('transfer-encoding', 'chunked');
+            const lines = res.text.split('\n');
+            expect(lines.length).toEqual(2);
+            expect(lines[0]).toEqual('{"model":"model-name","response":"","done":true,"done_reason":"load"}');
+            expect(lines[1]).toEqual('');
+          }
+          expect(containerRegistry.onHealthyContainerEvent).toHaveBeenCalledOnce();
+          expect(inferenceManager.createInferenceServer).toHaveBeenCalledOnce();
+        });
+      });
+    });
+
+    describe('the service is initially created but not started', async () => {
+      beforeEach(async () => {
+        vi.mocked(inferenceManager.getServers).mockReturnValueOnce([
+          {
+            models: [
+              {
+                id: 'modelId1',
+                name: 'model-name',
+                description: 'model 1',
+              },
+            ],
+            container: {
+              engineId: 'engine1',
+              containerId: 'container1',
+            },
+            status: 'stopped',
+          } as unknown as InferenceServer,
+        ]);
+      });
+
+      describe('the started service is immediately healthy', () => {
+        beforeEach(() => {
+          vi.mocked(inferenceManager.startInferenceServer).mockImplementation(async () => {
+            vi.mocked(inferenceManager.getServers).mockReturnValueOnce([
+              {
+                models: [
+                  {
+                    id: 'modelId1',
+                    name: 'model-name',
+                    description: 'model 1',
+                  },
+                ],
+                container: {
+                  engineId: 'engine1',
+                  containerId: 'container1',
+                },
+                status: 'running',
+                health: {
+                  Status: 'healthy',
+                },
+              } as unknown as InferenceServer,
+            ]);
+            vi.mocked(containerRegistry.onHealthyContainerEvent).mockImplementation(
+              onHealthyContainerEventEmptyCallback,
+            );
+          });
+        });
+
+        test('/api/generate starts the service and returns that the model is loaded', async () => {
+          const req = request(server.getListener()!).post('/api/generate').send({ model: 'model-name', stream });
+          if (stream === false) {
+            const res = await req.expect(200).expect('Content-Type', 'application/json; charset=utf-8');
+            expect(res.body).toEqual({ model: 'model-name', response: '', done: true, done_reason: 'load' });
+          } else {
+            const res = await req.expect(200).expect('transfer-encoding', 'chunked');
+            const lines = res.text.split('\n');
+            expect(lines.length).toEqual(2);
+            expect(lines[0]).toEqual('{"model":"model-name","response":"","done":true,"done_reason":"load"}');
+            expect(lines[1]).toEqual('');
+          }
+          expect(containerRegistry.onHealthyContainerEvent).toHaveBeenCalledOnce();
+          expect(inferenceManager.startInferenceServer).toHaveBeenCalledOnce();
+        });
+      });
+
+      describe('the started service is eventually healthy', () => {
+        beforeEach(() => {
+          vi.mocked(inferenceManager.startInferenceServer).mockImplementation(async () => {
+            vi.mocked(inferenceManager.getServers).mockReturnValueOnce([
+              {
+                models: [
+                  {
+                    id: 'modelId1',
+                    name: 'model-name',
+                    description: 'model 1',
+                  },
+                ],
+                container: {
+                  engineId: 'engine1',
+                  containerId: 'container1',
+                },
+                status: 'starting',
+              } as unknown as InferenceServer,
+            ]);
+            vi.mocked(containerRegistry.onHealthyContainerEvent).mockImplementation(
+              onHealthyContainerEventNonEmptyCallback,
+            );
+          });
+        });
+
+        test('/api/generate starts the service and returns that the model is loaded', async () => {
+          const req = request(server.getListener()!).post('/api/generate').send({ model: 'model-name', stream });
+          if (stream === false) {
+            const res = await req.expect(200).expect('Content-Type', 'application/json; charset=utf-8');
+            expect(res.body).toEqual({ model: 'model-name', response: '', done: true, done_reason: 'load' });
+          } else {
+            const res = await req.expect(200).expect('transfer-encoding', 'chunked');
+            const lines = res.text.split('\n');
+            expect(lines.length).toEqual(2);
+            expect(lines[0]).toEqual('{"model":"model-name","response":"","done":true,"done_reason":"load"}');
+            expect(lines[1]).toEqual('');
+          }
+          expect(containerRegistry.onHealthyContainerEvent).toHaveBeenCalledOnce();
+          expect(inferenceManager.startInferenceServer).toHaveBeenCalledOnce();
+        });
+      });
+    });
+
+    describe('the service is running', async () => {
+      beforeEach(async () => {
+        vi.mocked(inferenceManager.getServers).mockReturnValue([
+          {
+            models: [
+              {
+                id: 'modelId1',
+                name: 'model-name',
+                description: 'model 1',
+              },
+            ],
+            container: {
+              engineId: 'engine1',
+              containerId: 'container1',
+            },
+            status: 'running',
+            health: {
+              Status: 'healthy',
+            },
+            connection: {
+              port: 8080,
+            },
+          } as unknown as InferenceServer,
+        ]);
+      });
+
+      test('/api/generate returns that the model is loaded', async () => {
+        const req = request(server.getListener()!).post('/api/generate').send({ model: 'model-name', stream });
+        if (stream === false) {
+          const res = await req.expect(200).expect('Content-Type', 'application/json; charset=utf-8');
+          expect(res.body).toEqual({ model: 'model-name', response: '', done: true, done_reason: 'load' });
+        } else {
+          const res = await req.expect(200).expect('transfer-encoding', 'chunked');
+          const lines = res.text.split('\n');
+          expect(lines.length).toEqual(2);
+          expect(lines[0]).toEqual('{"model":"model-name","response":"","done":true,"done_reason":"load"}');
+          expect(lines[1]).toEqual('');
+        }
+      });
+
+      describe.each([
+        {
+          endpoint: '/api/chat',
+          query: {
+            model: 'model-name',
+            stream,
+            messages: [
+              {
+                role: 'user',
+                content: 'what is the question?',
+              },
+            ],
+          },
+          expectedNonStreamed: {
+            model: 'model-name',
+            message: { role: 'assistant', content: 'that is a good question' },
+            done: true,
+            done_reason: 'stop',
+          },
+          expectedStreamed: [
+            '{"model":"model-name","message":{"role":"assistant","content":"that "},"done":false}',
+            '{"model":"model-name","message":{"role":"assistant","content":"is "},"done":false}',
+            '{"model":"model-name","message":{"role":"assistant","content":"a "},"done":false}',
+            '{"model":"model-name","message":{"role":"assistant","content":"good "},"done":false}',
+            '{"model":"model-name","message":{"role":"assistant","content":"question"},"done":false}',
+            '{"model":"model-name","message":{"role":"assistant","content":"."},"done":true,"done_reason":"stop"}',
+            '',
+          ],
+        },
+        {
+          endpoint: '/api/generate',
+          query: { model: 'model-name', stream, prompt: 'what is the question?' },
+          expectedNonStreamed: {
+            model: 'model-name',
+            response: 'that is a good question',
+            done: true,
+            done_reason: 'stop',
+          },
+          expectedStreamed: [
+            '{"model":"model-name","response":"that ","done":false}',
+            '{"model":"model-name","response":"is ","done":false}',
+            '{"model":"model-name","response":"a ","done":false}',
+            '{"model":"model-name","response":"good ","done":false}',
+            '{"model":"model-name","response":"question","done":false}',
+            '{"model":"model-name","response":".","done":true,"done_reason":"stop"}',
+            '',
+          ],
+        },
+      ])('%o endpoint', ({ endpoint, query, expectedNonStreamed, expectedStreamed }) => {
+        test('calls the service and replies to the prompt', async () => {
+          if (stream || stream === undefined) {
+            const chunks = [
+              {
+                choices: [
+                  {
+                    delta: {
+                      content: 'that ',
+                    },
+                  },
+                ],
+              },
+              {
+                choices: [
+                  {
+                    delta: {
+                      content: 'is ',
+                    },
+                  },
+                ],
+              },
+              {
+                choices: [
+                  {
+                    delta: {
+                      content: 'a ',
+                    },
+                  },
+                ],
+              },
+              {
+                choices: [
+                  {
+                    delta: {
+                      content: 'good ',
+                    },
+                  },
+                ],
+              },
+              {
+                choices: [
+                  {
+                    delta: {
+                      content: 'question',
+                    },
+                  },
+                ],
+              },
+              {
+                choices: [
+                  {
+                    delta: {
+                      content: '.',
+                    },
+                    finish_reason: 'stop',
+                  },
+                ],
+              },
+            ] as ChatCompletionChunk[];
+            const asyncIterator = (async function* (): AsyncGenerator<
+              OpenAI.Chat.Completions.ChatCompletionChunk,
+              void,
+              unknown
+            > {
+              for (const chunk of chunks) {
+                yield chunk;
+              }
+            })();
+            const response = new Stream<ChatCompletionChunk>(() => asyncIterator, new AbortController());
+            vi.mocked(OpenAI.prototype.chat.completions.create).mockResolvedValue(response);
+          } else {
+            vi.mocked(OpenAI.prototype.chat.completions.create).mockResolvedValue({
+              id: 'id1',
+              choices: [
+                {
+                  message: {
+                    role: 'assistant',
+                    content: 'that is a good question',
+                  },
+                },
+              ],
+            } as unknown as ChatCompletion);
+          }
+          const req = request(server.getListener()!).post(endpoint).send(query);
+          if (stream === false) {
+            const res = await req.expect(200).expect('Content-Type', 'application/json; charset=utf-8');
+            expect(res.body).toEqual(expectedNonStreamed);
+          } else {
+            const res = await req.expect(200).expect('transfer-encoding', 'chunked');
+            const lines = res.text.split('\n');
+            expect(lines.length).toEqual(expectedStreamed.length);
+            for (const [i, line] of lines.entries()) {
+              expect(line).toEqual(expectedStreamed[i]);
+            }
+          }
+        });
+      });
+    });
   });
 });
