@@ -19,11 +19,25 @@
 import type { InstructlabAPI } from '@shared/src/InstructlabAPI';
 import type { InstructlabManager } from './managers/instructlab/instructlabManager';
 import type { InstructlabSession } from '@shared/src/models/instructlab/IInstructlabSession';
+import type { InstructlabContainerConfiguration } from '@shared/src/models/instructlab/IInstructlabContainerConfiguration';
+import { navigation } from '@podman-desktop/api';
 
 export class InstructlabApiImpl implements InstructlabAPI {
   constructor(private instructlabManager: InstructlabManager) {}
 
   async getIsntructlabSessions(): Promise<InstructlabSession[]> {
     return this.instructlabManager.getSessions();
+  }
+
+  requestCreateInstructlabContainer(config: InstructlabContainerConfiguration): Promise<void> {
+    return this.instructlabManager.requestCreateInstructlabContainer(config);
+  }
+
+  routeToInstructLabContainerTerminal(containerId: string): Promise<void> {
+    return navigation.navigateToContainerTerminal(containerId);
+  }
+
+  getInstructlabContainerId(): Promise<string | undefined> {
+    return this.instructlabManager.getInstructLabContainer();
   }
 }

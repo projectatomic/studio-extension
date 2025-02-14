@@ -15,25 +15,11 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
+import type { ContainerProviderConnectionInfo } from '../IContainerConnectionInfo';
 
-import type { InstructlabSession } from './models/instructlab/IInstructlabSession';
-import type { InstructlabContainerConfiguration } from './models/instructlab/IInstructlabContainerConfiguration';
-
-export abstract class InstructlabAPI {
-  static readonly CHANNEL: string = 'InstructlabAPI';
+export interface InstructlabContainerConfiguration {
   /**
-   * Get sessions of InstructLab tuning
+   * The connection info to use
    */
-  abstract getIsntructlabSessions(): Promise<InstructlabSession[]>;
-
-  /**
-   * Start a container for InstructLab
-   *
-   * @param config
-   */
-  abstract requestCreateInstructlabContainer(config: InstructlabContainerConfiguration): Promise<void>;
-
-  abstract routeToInstructLabContainerTerminal(containerId: string): Promise<void>;
-
-  abstract getInstructlabContainerId(): Promise<string | undefined>;
+  connection?: ContainerProviderConnectionInfo;
 }

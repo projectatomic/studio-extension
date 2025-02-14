@@ -10,6 +10,7 @@ import {
   faServer,
   faHouse,
   faGear,
+  faCircleDown,
 } from '@fortawesome/free-solid-svg-icons';
 import InstructLabIcon from '/@/lib/icons/InstructLabIcon.svelte';
 import { SettingsNavItem } from '@podman-desktop/ui-svelte';
@@ -92,6 +93,11 @@ onDestroy(() => {
         title="Tune with InstructLab"
         selected={meta.url.startsWith('/tune')}
         href="/tune" />
+      <SettingsNavItem
+        icon={faCircleDown}
+        title="Try InstructLab"
+        selected={meta.url.startsWith('/instructlab/try')}
+        href="/instructlab/try" />
     {/if}
   </div>
 </nav>

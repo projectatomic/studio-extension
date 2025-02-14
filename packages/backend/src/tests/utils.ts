@@ -15,25 +15,18 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
+export class TestEventEmitter {
+  #listeners: ((value: unknown) => void)[] = [];
 
-import type { InstructlabSession } from './models/instructlab/IInstructlabSession';
-import type { InstructlabContainerConfiguration } from './models/instructlab/IInstructlabContainerConfiguration';
+  event: (listener: (value: unknown) => void) => void;
 
-export abstract class InstructlabAPI {
-  static readonly CHANNEL: string = 'InstructlabAPI';
-  /**
-   * Get sessions of InstructLab tuning
-   */
-  abstract getIsntructlabSessions(): Promise<InstructlabSession[]>;
+  constructor() {
+    this.event = (listener): void => {
+      this.#listeners.push(listener);
+    };
+  }
 
-  /**
-   * Start a container for InstructLab
-   *
-   * @param config
-   */
-  abstract requestCreateInstructlabContainer(config: InstructlabContainerConfiguration): Promise<void>;
-
-  abstract routeToInstructLabContainerTerminal(containerId: string): Promise<void>;
-
-  abstract getInstructlabContainerId(): Promise<string | undefined>;
+  fire(value: unknown): void {
+    this.#listeners.forEach(listener => listener(value));
+  }
 }

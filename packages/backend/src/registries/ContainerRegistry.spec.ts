@@ -15,9 +15,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  ***********************************************************************/
-import { beforeEach, expect, test, vi } from 'vitest';
+import { beforeAll, expect, test, vi } from 'vitest';
 import { ContainerRegistry } from './ContainerRegistry';
 import { type ContainerJSONEvent, EventEmitter } from '@podman-desktop/api';
+import { TestEventEmitter } from '../tests/utils';
 
 const mocks = vi.hoisted(() => ({
   onEventMock: vi.fn(),
@@ -36,18 +37,8 @@ vi.mock('@podman-desktop/api', async () => {
   };
 });
 
-beforeEach(() => {
-  const listeners: ((value: unknown) => void)[] = [];
-  const eventSubscriber = (listener: (value: unknown) => void): void => {
-    listeners.push(listener);
-  };
-  const fire = (value: unknown): void => {
-    listeners.forEach(listener => listener(value));
-  };
-  vi.mocked(EventEmitter).mockReturnValue({
-    event: eventSubscriber,
-    fire: fire,
-  } as unknown as EventEmitter<unknown>);
+beforeAll(() => {
+  vi.mocked(EventEmitter).mockImplementation(() => new TestEventEmitter() as unknown as EventEmitter<unknown>);
 });
 
 test('ContainerRegistry init', () => {
@@ -169,4 +160,37 @@ test('ContainerRegistry should fire ContainerStart when container start', () => 
 
   // Our subscriber should only have been called once, the first, after it should have been removed.
   expect(startListenerMock).toHaveBeenCalledOnce();
+});
+
+test('ContainerRegistry should fire ContainerStop when container stop', () => {
+  // Get the callback created by the ContainerRegistry
+  let callback: ((event: ContainerJSONEvent) => void) | undefined;
+  mocks.onEventMock.mockImplementation((method: (event: ContainerJSONEvent) => void) => {
+    callback = method;
+  });
+
+  // Create the ContainerRegistry and init
+  const registry = new ContainerRegistry();
+  registry.init();
+
+  const stopListenerMock = vi.fn();
+  registry.onStopContainerEvent(stopListenerMock);
+
+  if (!callback) throw new Error('undefined callback');
+
+  // Generate a remove event
+  callback({ status: 'remove', id: 'random', type: 'container' });
+
+  expect(stopListenerMock).not.toHaveBeenCalled();
+
+  // Call it a second time
+  callback({ status: 'start', id: 'random', type: 'container' });
+
+  // Our subscriber should only have been called once, the first, after it should have been removed.
+  expect(stopListenerMock).not.toHaveBeenCalled();
+
+  callback({ status: 'die', id: 'random', type: 'container' });
+
+  // Our subscriber should only have been called once, the first, after it should have been removed.
+  expect(stopListenerMock).toHaveBeenCalledOnce();
 });
