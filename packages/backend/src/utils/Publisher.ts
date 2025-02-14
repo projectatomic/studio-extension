@@ -22,17 +22,19 @@ export class Publisher<T> {
   constructor(
     private webview: Webview,
     private channel: Messages,
-    private getter: () => T,
+    private stateGetter: () => T,
   ) {}
 
-  notify(): void {
-    this.webview
-      .postMessage({
+  protected async notify(): Promise<void> {
+    try {
+      const data = this.stateGetter();
+      await this.webview.postMessage({
         id: this.channel,
-        body: this.getter(),
-      })
-      .catch((err: unknown) => {
-        console.error(`Something went wrong while emitting ${this.channel}: ${String(err)}`);
+        body: data,
       });
+    } catch (error) {
+      console.error(`Error publishing to ${this.channel}:`, error);
+      throw error; // Re-throw to allow error handling by caller
+    }
   }
 }

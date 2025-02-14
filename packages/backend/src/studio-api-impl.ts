@@ -57,12 +57,19 @@ import type { RecipePullOptions } from '@shared/src/models/IRecipe';
 import type { ContainerProviderConnection } from '@podman-desktop/api';
 import type { NavigationRegistry } from './registries/NavigationRegistry';
 import type { FilterRecipesResult, RecipeFilters } from '@shared/src/models/FilterRecipesResult';
+import type { ErrorState } from '@shared/src/models/IError';
+import type { ServiceMetadata } from '@shared/src/models/ServiceMetadata';
+import { Messages } from '@shared/Messages';
+import type { RpcBrowser } from '@shared/src/messages/MessageProxy';
 
 interface PortQuickPickItem extends podmanDesktopApi.QuickPickItem {
   port: number;
 }
 
 export class StudioApiImpl implements StudioAPI {
+  #errors: ErrorState[] = [];
+  #rpcBrowser: RpcBrowser | undefined;
+
   constructor(
     private applicationManager: ApplicationManager,
     private catalogManager: CatalogManager,
@@ -78,7 +85,55 @@ export class StudioApiImpl implements StudioAPI {
     private recipeManager: RecipeManager,
     private podmanConnection: PodmanConnection,
     private navigationRegistry: NavigationRegistry,
-  ) {}
+    rpcBrowser?: RpcBrowser,
+  ) {
+    this.#rpcBrowser = rpcBrowser;
+  }
+
+  async getErrors(): Promise<ErrorState[]> {
+    return this.#errors;
+  }
+
+  async acknowledgeError(errorId: string): Promise<void> {
+    const error = this.#errors.find(e => e.id === errorId);
+    if (error) {
+      error.acknowledged = true;
+      // Notify subscribers of the updated error state
+      this.notify(Messages.MSG_NEW_ERROR_STATE, this.#errors);
+    }
+  }
+
+  async resolveServiceUri(uri: string): Promise<ServiceMetadata> {
+    // Basic validation of MCP URI format
+    if (!uri.startsWith('mcp://')) {
+      throw new Error('Invalid MCP URI format. Must start with mcp://');
+    }
+
+    // For now return empty metadata - this can be expanded based on requirements
+    return {};
+  }
+
+  // Helper method to create and track errors
+  async createError(error: Omit<ErrorState, 'id' | 'timestamp'>): Promise<void> {
+    const newError: ErrorState = {
+      ...error,
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+    };
+    this.#errors.push(newError);
+    // Notify subscribers of the new error state
+    this.notify(Messages.MSG_NEW_ERROR_STATE, this.#errors);
+  }
+
+  private notify(channel: string, message: unknown): void {
+    if (this.#rpcBrowser) {
+      // Use the RpcBrowser's subscribe mechanism to notify subscribers
+      const subscribers = this.#rpcBrowser.subscribers.get(channel);
+      if (subscribers) {
+        subscribers.forEach(listener => listener(message));
+      }
+    }
+  }
 
   async readRoute(): Promise<string | undefined> {
     return this.navigationRegistry.readRoute();
