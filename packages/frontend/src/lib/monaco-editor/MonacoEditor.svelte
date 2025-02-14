@@ -10,9 +10,18 @@ interface Props extends HTMLAttributes<HTMLElement> {
   language: string;
   readOnly?: boolean;
   onChange?: (content: string) => void;
+  noMinimap?: boolean;
 }
 
-let { content = $bindable(), language, readOnly = false, onChange, class: className, ...restProps }: Props = $props();
+let {
+  content = $bindable(),
+  language,
+  readOnly = false,
+  onChange,
+  class: className,
+  noMinimap,
+  ...restProps
+}: Props = $props();
 
 let editorInstance: Monaco.editor.IStandaloneCodeEditor;
 let editorContainer: HTMLElement;
@@ -63,6 +72,9 @@ onMount(async () => {
         readOnly: readOnly,
         theme: 'podmanDesktopTheme',
         glyphMargin: true, // Enable glyph margin
+        minimap: {
+          enabled: !noMinimap,
+        },
       });
 
       editorInstance.onDidChangeModelContent(() => {

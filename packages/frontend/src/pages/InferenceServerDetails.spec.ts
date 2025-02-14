@@ -232,7 +232,7 @@ describe('snippets', () => {
     await vi.waitFor(() => {
       expect(MonacoEditor).toHaveBeenCalledWith(
         expect.anything(),
-        expect.objectContaining({ content: DUMMY_SNIPPET, language: 'curl', readOnly: true }),
+        expect.objectContaining({ content: DUMMY_SNIPPET, language: 'curl', readOnly: true, noMinimap: true }),
       );
     });
   });

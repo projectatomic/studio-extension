@@ -356,7 +356,7 @@ function handleOnChange(): void {
                     class="bg-[var(--pd-details-empty-cmdline-bg)] text-[var(--pd-details-empty-cmdline-text)] rounded-md w-full p-4 mt-2 relative h-[400px]"
                     aria-label="Code Snippet">
                     {#key snippet}
-                      <MonacoEditor class="h-full" readOnly content={snippet} language={selectedLanguage} />
+                      <MonacoEditor class="h-full" readOnly content={snippet} language={selectedLanguage} noMinimap />
                     {/key}
                     <div class="absolute right-4 top-4 z-10">
                       <Button icon={copied ? faCheck : faCopy} type="secondary" title="Copy" on:click={copySnippet} />
