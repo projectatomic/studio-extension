@@ -31,7 +31,7 @@ test('print Badge with custom text and default background', async () => {
 });
 
 test('print Badge with custom text and custom background', async () => {
-  render(Badge, { icon: faTrash, content: 'custom-text', background: 'bg-[var(--pd-label-text)]' });
+  render(Badge, { icon: faTrash, content: 'custom-text', backgroundColor: 'bg-[var(--pd-label-text)]' });
 
   const badgeContent = screen.getByText('custom-text');
   expect(badgeContent).toBeInTheDocument();
