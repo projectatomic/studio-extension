@@ -19,7 +19,7 @@ import type { InferenceServer, InferenceServerStatus, InferenceType } from '@sha
 import type { PodmanConnection, PodmanConnectionEvent } from '../podmanConnection';
 import { containerEngine, Disposable } from '@podman-desktop/api';
 import type { ContainerInfo, TelemetryLogger, Webview, ContainerProviderConnection } from '@podman-desktop/api';
-import type { ContainerRegistry, ContainerStart } from '../../registries/ContainerRegistry';
+import type { ContainerRegistry, ContainerEvent } from '../../registries/ContainerRegistry';
 import { getInferenceType, isTransitioning, LABEL_INFERENCE_SERVER } from '../../utils/inferenceUtils';
 import { Publisher } from '../../utils/Publisher';
 import { Messages } from '@shared/Messages';
@@ -318,7 +318,7 @@ export class InferenceManager extends Publisher<InferenceServer[]> implements Di
    * Listener for container start events
    * @param event the event containing the id of the container
    */
-  private watchContainerStart(event: ContainerStart): void {
+  private watchContainerStart(event: ContainerEvent): void {
     // We might have a start event for an inference server we already know about
     if (this.#servers.has(event.id)) return;
 
