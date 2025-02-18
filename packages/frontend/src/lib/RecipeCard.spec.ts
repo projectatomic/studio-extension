@@ -17,7 +17,7 @@
  ***********************************************************************/
 
 import '@testing-library/jest-dom/vitest';
-import { vi, test, expect, beforeEach } from 'vitest';
+import { vi, test, expect, beforeEach, beforeAll } from 'vitest';
 import { screen, render } from '@testing-library/svelte';
 import { findLocalRepositoryByRecipeId } from '/@/utils/localRepositoriesUtils';
 import RecipeCard from './RecipeCard.svelte';
@@ -53,6 +53,16 @@ const recipe = {
   description: 'description 1',
   repository: 'repo 1',
 };
+
+class ResizeObserver {
+  observe = vi.fn();
+  disconnect = vi.fn();
+  unobserve = vi.fn();
+}
+
+beforeAll(() => {
+  Object.defineProperty(window, 'ResizeObserver', { value: ResizeObserver });
+});
 
 beforeEach(() => {
   vi.resetAllMocks();

@@ -19,7 +19,7 @@
 import '@testing-library/jest-dom/vitest';
 import { screen, render } from '@testing-library/svelte';
 import { beforeAll, expect, test, vi } from 'vitest';
-import RecipeCardTags from './RecipeCardTags.svelte';
+import RecipeCardTags from '/@/lib/RecipeCardTags.svelte';
 import userEvent from '@testing-library/user-event';
 
 const recipe = {
