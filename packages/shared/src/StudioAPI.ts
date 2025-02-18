@@ -37,6 +37,8 @@ import type {
 import type { ExtensionConfiguration } from './models/IExtensionConfiguration';
 import type { RecipePullOptions } from './models/IRecipe';
 import type { FilterRecipesResult, RecipeFilters } from './models/FilterRecipesResult';
+import type { ErrorState } from './models/IError';
+import type { ServiceMetadata } from './models/ServiceMetadata';
 
 export abstract class StudioAPI {
   static readonly CHANNEL: string = 'StudioAPI';
@@ -246,4 +248,20 @@ export abstract class StudioAPI {
    * route it should use. This method has a side effect of removing the pending route after calling.
    */
   abstract readRoute(): Promise<string | undefined>;
+
+  /**
+   * Get the current error state
+   */
+  abstract getErrors(): Promise<ErrorState[]>;
+
+  /**
+   * Acknowledge an error
+   * @param errorId the id of the error to acknowledge
+   */
+  abstract acknowledgeError(errorId: string): Promise<void>;
+
+  /**
+   * Resolve an MCP service URI (e.g. mcp://api.myservice.com) and return metadata.
+   */
+  abstract resolveServiceUri(uri: string): Promise<ServiceMetadata>;
 }

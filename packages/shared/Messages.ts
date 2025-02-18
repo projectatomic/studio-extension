@@ -18,6 +18,7 @@
 
 export enum Messages {
   MSG_NEW_CATALOG_STATE = 'new-catalog-state',
+  MSG_ASK_CATALOG_STATE = 'ask-catalog-state',
   MSG_TASKS_UPDATE = 'tasks-update',
   MSG_NEW_MODELS_STATE = 'new-models-state',
   MSG_APPLICATIONS_STATE_UPDATE = 'applications-state-update',
@@ -32,4 +33,9 @@ export enum Messages {
   MSG_PODMAN_CONNECTION_UPDATE = 'podman-connecting-update',
   MSG_INSTRUCTLAB_SESSIONS_UPDATE = 'instructlab-sessions-update',
   MSG_NAVIGATION_ROUTE_UPDATE = 'navigation-route-update',
+  MSG_NEW_ERROR_STATE = 'new-error-state',
+  MSG_ASK_ERROR_STATE = 'ask-error-state',
+  MSG_NEW_PULLED_APPLICATION_STATE = 'new-pulled-application-state',
+  MSG_ASK_PULLED_APPLICATIONS_STATE = 'ask-pulled-applications-state',
+  MSG_ACK_ERROR = 'ack-error',
 }
