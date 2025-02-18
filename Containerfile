@@ -29,6 +29,6 @@ FROM scratch
 LABEL org.opencontainers.image.title="AI Lab" \
         org.opencontainers.image.description="AI Lab" \
         org.opencontainers.image.vendor="Red Hat" \
-        io.podman-desktop.api.version=">= 1.8.0"
+        io.podman-desktop.api.version=">= 1.17.0"
 
 COPY --from=builder /extension /extension
