@@ -7,7 +7,7 @@ import { localRepositories } from '../stores/localRepositories';
 import { findLocalRepositoryByRecipeId } from '/@/utils/localRepositoriesUtils';
 import type { LocalRepository } from '@shared/src/models/ILocalRepository';
 import RecipeStatus from '/@/lib/RecipeStatus.svelte';
-import RecipeCardTags from './RecipeCardTags.svelte';
+import RecipeCardTags from '/@/lib/RecipeCardTags.svelte';
 
 export let recipe: Recipe;
 
@@ -35,9 +35,7 @@ function handleClick(): void {
         </div>
 
         <!-- right column -->
-        <div>
-          <RecipeStatus recipe={recipe} localRepository={localPath} />
-        </div>
+        <RecipeStatus recipe={recipe} localRepository={localPath} />
       </div>
 
       <!-- tags -->

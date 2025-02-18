@@ -31,28 +31,28 @@ let recipeCardWidth: number = $state(0);
 
 function determineBackgroundColor(tag: string): string {
   if (useCases.includes(tag)) {
-    return 'bg-purple-200';
+    return 'bg-[var(--pd-label-primary-bg)]';
   } else if (languages.includes(tag)) {
-    return 'bg-green-200';
+    return 'bg-[var(--pd-label-secondary-bg)]';
   } else if (frameworks.includes(tag)) {
-    return 'bg-amber-100';
+    return 'bg-[var(--pd-label-tertiary-bg)]';
   } else if (tools.includes(tag)) {
-    return 'bg-sky-200';
+    return 'bg-[var(--pd-label-quaternary-bg)]';
   }
-  return 'bg-purple-200';
+  return 'bg-[var(--pd-label-primary-bg)]';
 }
 
 function determineTextColor(tag: string): string {
   if (useCases.includes(tag)) {
-    return 'text-dustypurple-900';
+    return 'text-[var(--pd-label-primary-text)]';
   } else if (languages.includes(tag)) {
-    return 'text-green-900';
+    return 'text-[var(--pd-label-secondary-text)]';
   } else if (frameworks.includes(tag)) {
-    return 'text-amber-700';
+    return 'text-[var(--pd-label-tertiary-text)]';
   } else if (tools.includes(tag)) {
-    return 'text-sky-900';
+    return 'text-[var(--pd-label-quaternary-text)]';
   }
-  return 'text-dustypurple-900';
+  return 'text-[var(--pd-label-primary-text)]';
 }
 
 function updateContent(tag: string): string {
@@ -160,7 +160,7 @@ function toggleExpanded(): void {
     <button onclick={toggleExpanded}>
       <Badge
         backgroundColor="bg-transparent"
-        textColor="text-dustypurple-900"
+        textColor="text-[var(--pd-link)]"
         content={expanded ? 'Show less' : `+${tags.length - visibleTags.length} more`} />
     </button>
   </div>
