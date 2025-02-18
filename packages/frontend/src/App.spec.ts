@@ -35,6 +35,8 @@ vi.mock('tinro', () => ({
     },
   },
 }));
+// mock monaco
+vi.mock('/@/lib/monaco-editor/MonacoEditor.svelte');
 
 vi.mock('./stores/extensionConfiguration.ts', () => ({
   configuration: {

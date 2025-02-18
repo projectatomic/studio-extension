@@ -34,6 +34,7 @@
     "@types/humanize-duration": "^3.27.4",
     "@typescript-eslint/eslint-plugin": "8.24.1",
     "jsdom": "^26.0.0",
+    "monaco-editor": "^0.52.2",
     "postcss": "^8.5.2",
     "postcss-load-config": "^6.0.1",
     "svelte": "5.20.1",

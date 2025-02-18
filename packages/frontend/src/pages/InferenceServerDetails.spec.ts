@@ -25,6 +25,7 @@ import type { Language } from 'postman-code-generators';
 import { studioClient } from '/@/utils/client';
 import { router } from 'tinro';
 import type { ModelInfo } from '@shared/src/models/IModelInfo';
+import MonacoEditor from '/@/lib/monaco-editor/MonacoEditor.svelte';
 
 const mocks = vi.hoisted(() => {
   return {
@@ -32,6 +33,10 @@ const mocks = vi.hoisted(() => {
     getSnippetLanguagesMock: vi.fn(),
   };
 });
+
+vi.mock('/@/lib/monaco-editor/MonacoEditor.svelte', () => ({
+  default: vi.fn(),
+}));
 
 vi.mock('../stores/inferenceServers', () => ({
   inferenceServers: {
@@ -215,6 +220,21 @@ describe('snippets', () => {
       'curl',
       'cURL',
     );
+  });
+
+  test('generated snippet should be sent to the monaco component', async () => {
+    const DUMMY_SNIPPET = 'dummy generated snippet';
+    vi.mocked(studioClient.createSnippet).mockResolvedValue(DUMMY_SNIPPET);
+    render(InferenceServerDetails, {
+      containerId: 'dummyContainerId',
+    });
+
+    await vi.waitFor(() => {
+      expect(MonacoEditor).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ content: DUMMY_SNIPPET, language: 'curl', readOnly: true, noMinimap: true }),
+      );
+    });
   });
 
   test('copy snippet should call copyToClipboard', async () => {
