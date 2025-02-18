@@ -26,6 +26,10 @@ export interface ContainerStart {
   id: string;
 }
 
+export interface ContainerHealthy {
+  id: string;
+}
+
 export class ContainerRegistry implements podmanDesktopApi.Disposable {
   private count: number = 0;
   private subscribers: Map<string, Subscriber[]> = new Map();
@@ -33,12 +37,21 @@ export class ContainerRegistry implements podmanDesktopApi.Disposable {
   private readonly _onStartContainerEvent = new podmanDesktopApi.EventEmitter<ContainerStart>();
   readonly onStartContainerEvent: podmanDesktopApi.Event<ContainerStart> = this._onStartContainerEvent.event;
 
+  private readonly _onHealthyContainerEvent = new podmanDesktopApi.EventEmitter<ContainerHealthy>();
+  readonly onHealthyContainerEvent: podmanDesktopApi.Event<ContainerHealthy> = this._onHealthyContainerEvent.event;
+
   #eventDisposable: podmanDesktopApi.Disposable | undefined;
 
   init(): void {
     this.#eventDisposable = podmanDesktopApi.containerEngine.onEvent(event => {
       if (event.status === 'start') {
         this._onStartContainerEvent.fire({
+          id: event.id,
+        });
+      }
+
+      if (event.status === 'health_status' && 'HealthStatus' in event && event.HealthStatus === 'healthy') {
+        this._onHealthyContainerEvent.fire({
           id: event.id,
         });
       }

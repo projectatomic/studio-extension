@@ -354,7 +354,9 @@ export class Studio {
       this.#extensionContext,
       this.#modelsManager,
       this.#catalogManager,
+      this.#inferenceManager,
       this.#configurationRegistry,
+      this.#containerRegistry,
     );
     await apiServer.init();
     this.#extensionContext.subscriptions.push(apiServer);
